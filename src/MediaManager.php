@@ -21,13 +21,13 @@ class MediaManager
 {
     protected ?HandlerInterface $handler = null;
     protected ?string $disk = null;
-    protected ?string $visibility = null;
+    protected ?string $visibility = 'public';
     protected ?string $fallbackExtension = null;
     protected ?string $path = null;
-    protected ?string $namingMode = null;
+    protected ?string $namingMode = 'original';
     protected mixed $customName = null;
     protected ?string $pendingDeletePath = null;
-
+    
     public function __construct()
     {
         $this->disk = config('filesystems.default');

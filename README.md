@@ -65,7 +65,10 @@ Media::fromBase64($data);                // Base64 / Data URL
 Media::fromContent('raw text');          // Raw content
 Media::fromLocalPath('/tmp/file.pdf');   // Local file path
 Media::fromUrl('https://img.com/x.png'); // Remote URL
-```
+
+// Auto-detect (works with any of the above)
+Media::from($mixedInput)->store(); 
+// $mixedInput can be UploadedFile, base64 string, content, path, or URL
 
 ---
 
