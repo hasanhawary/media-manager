@@ -27,7 +27,7 @@ class MediaManager
     protected ?string $namingMode = 'original';
     protected mixed $customName = null;
     protected ?string $pendingDeletePath = null;
-    
+
     public function __construct()
     {
         $this->disk = config('filesystems.default');
