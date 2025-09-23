@@ -23,8 +23,8 @@ class MediaManager
     protected ?string $disk = null;
     protected ?string $visibility = 'public';
     protected ?string $fallbackExtension = null;
-    protected ?string $path = null;
-    protected ?string $namingMode = 'original';
+    protected ?string $path = 'files';
+    protected ?string $namingMode = 'uuid';
     protected mixed $customName = null;
     protected ?string $pendingDeletePath = null;
 
@@ -148,9 +148,9 @@ class MediaManager
         $path = $this->path ?: 'files';
         $options = [
             'disk' => $this->disk,
-            'visibility' => $this->visibility ?: 'public',
+            'visibility' => $this->visibility,
             'fallbackExtension' => $this->fallbackExtension,
-            'namingMode' => $this->namingMode ?? 'uuid',
+            'namingMode' => $this->namingMode,
             'customName' => $this->customName
         ];
 
