@@ -1,10 +1,3 @@
-Exactly 💪 — that’s an important capability to highlight in your **Quick Start** and **Upload section**:
-`upload($item)` can accept **multiple input types** (file, base64, URL, raw content) automatically — so developers don’t have to manually call `fromBase64()`, `fromUrl()`, etc.
-
-Here’s your **final refined README.md** version (ready for GitHub/Packagist) — clean, professional, and fully includes that key point.
-
----
-
 # Media Manager
 
 [![Latest Stable Version](https://img.shields.io/packagist/v/hasanhawary/media-manager.svg)](https://packagist.org/packages/hasanhawary/media-manager)
