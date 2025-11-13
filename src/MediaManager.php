@@ -181,20 +181,28 @@ class MediaManager
 
     public function replace(?string $oldPath = null): static
     {
+        if (!$oldPath) {
+            $this->pendingDeletePath = null;
+            return $this;
+        }
+
+        $path = $oldPath;
+
         // Handle full URLs
         $diskUrl = Storage::disk($this->disk)->url('');
-        if (Str::startsWith($oldPath, ['http://', 'https://'])) {
-            $path = Str::after($oldPath, $diskUrl);
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            $path = Str::after($path, $diskUrl);
         }
 
         // Remove storage prefix if present (for local/public disk)
         $path = Str::after($path, 'storage/');
 
         // Remove any leading slashes
-        $this->pendingDeletePath =  ltrim($path, '/');
-        
+        $this->pendingDeletePath = ltrim($path, '/');
+
         return $this;
     }
+
 
     public function exists(?string $item = null): bool
     {
