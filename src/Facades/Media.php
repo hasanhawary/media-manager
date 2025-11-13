@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Facade;
  * Fluent static facade for MediaManager.
  *
  * Sources:
+ * @method static MediaManager upload(mixed $item, string $path)
  * @method static MediaManager from(mixed $item)
  * @method static MediaManager fromBase64(string $base64)
  * @method static MediaManager fromUrl(string $url, bool $storedLocal = false)
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Facade;
  *
  * Options:
  * @method static MediaManager to(string $path)
+ * @method static MediaManager exists(string $path)
  * @method static MediaManager on(?string $disk)
  * @method static MediaManager visibility(?string $visibility)
  * @method static MediaManager fallbackExtension(?string $extension)

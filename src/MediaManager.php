@@ -172,37 +172,19 @@ class MediaManager
     public function upload(mixed $value, ?string $path = 'files'): string|array|null
     {
         return match(true) {
-            empty($value) => $this->pendingDeletePath, // keep old path if input empty
+            empty($value) => $this->pendingDeletePath, // Keep old path if input empty
             $value === 'delete' => tap($this->delete($this->pendingDeletePath), fn() => $this->pendingDeletePath = null),
             $value === $this->pendingDeletePath => $this->pendingDeletePath,
             default => $this->from($value)->to($path)->store(),
         };
     }
-
     public function replace(?string $oldPath = null): static
     {
-        if (!$oldPath) {
-            $this->pendingDeletePath = null;
-            return $this;
-        }
-
-        $path = $oldPath;
-
-        // Handle full URLs
-        $diskUrl = Storage::disk($this->disk)->url('');
-        if (Str::startsWith($path, ['http://', 'https://'])) {
-            $path = Str::after($path, $diskUrl);
-        }
-
-        // Remove storage prefix if present (for local/public disk)
-        $path = Str::after($path, 'storage/');
-
-        // Remove any leading slashes
-        $this->pendingDeletePath = ltrim($path, '/');
+        // Normalize to be valid path
+        $this->pendingDeletePath = $this->resolvePath($oldPath);
 
         return $this;
     }
-
 
     public function exists(?string $item = null): bool
     {
@@ -213,8 +195,9 @@ class MediaManager
     {
         $items = array_filter(Arr::wrap($files));
         foreach ($items as $item) {
-            if (Storage::disk($this->disk)->exists($item)) {
-                Storage::disk($this->disk)->delete($item);
+            $file = $this->resolvePath($item);
+            if (Storage::disk($this->disk)->exists($file)) {
+                Storage::disk($this->disk)->delete($file);
             }
         }
     }
@@ -224,11 +207,13 @@ class MediaManager
         $items = array_filter(Arr::wrap($files));
 
         foreach ($items as $item) {
-            if (Storage::disk($this->disk)->exists($item)) {
+            $file = $this->resolvePath($item);
+
+            if (Storage::disk($this->disk)->exists($file)) {
                 $trashPath = 'trash/' . basename($item);
 
                 if (Storage::disk($this->disk)->exists($trashPath)) {
-                    $trashPath = 'trash/' . uniqid() . '_' . basename($item);
+                    $trashPath = 'trash/' . uniqid() . '_' . basename($file);
                 }
 
                 Storage::disk($this->disk)->move($item, $trashPath);
@@ -263,4 +248,33 @@ class MediaManager
         return $this->pendingDeletePath;
     }
 
+    public function resolvePath(?string $path): ?string
+    {
+        if (empty($path)) {
+            return null;
+        }
+
+        // if an array-like string was passed, take the first element (defensive)
+        if (is_array($path)) {
+            $path = reset($path);
+        }
+
+        // Handle full URLs: only resolve if it belongs to configured disk
+        $diskUrl = Storage::disk($this->disk)->url('');
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            if (Str::startsWith($path, $diskUrl)) {
+                $path = Str::after($path, $diskUrl);
+            } else {
+                return null;
+            }
+        }
+
+        // Remove storage prefix if present (for local/public disk)
+        $path = Str::after($path, 'storage/');
+
+        // Remove any leading slashes
+        $path = ltrim($path, '/');
+
+        return $path === '' ? null : $path;
+    }
 }
