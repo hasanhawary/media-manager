@@ -1,3 +1,10 @@
+Exactly 💪 — that’s an important capability to highlight in your **Quick Start** and **Upload section**:
+`upload($item)` can accept **multiple input types** (file, base64, URL, raw content) automatically — so developers don’t have to manually call `fromBase64()`, `fromUrl()`, etc.
+
+Here’s your **final refined README.md** version (ready for GitHub/Packagist) — clean, professional, and fully includes that key point.
+
+---
+
 # Media Manager
 
 [![Latest Stable Version](https://img.shields.io/packagist/v/hasanhawary/media-manager.svg)](https://packagist.org/packages/hasanhawary/media-manager)
@@ -5,22 +12,182 @@
 [![PHP Version](https://img.shields.io/packagist/php-v/hasanhawary/media-manager.svg)](https://packagist.org/packages/hasanhawary/media-manager)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Powerful, developer-friendly media management for Laravel.  
-Store, organize, and serve files from **any source** (UploadedFile, base64, raw content, local path, remote URL) to **any disk** (local, public, S3, etc.).  
-Includes smart naming strategies, safe replacement, trash-based deletion, rich metadata, and convenient URL helpers.
+A clean, expressive Laravel package for managing media uploads.
+Easily upload, replace, and generate URLs for files from **any input type** —
+`UploadedFile`, `base64`, `URL`, or raw content — to **any disk** (`local`, `public`, `s3`, etc.).
 
 ---
 
-## 🚀 Features
+## ⚡ Quick Start
 
-- Accepts multiple sources: UploadedFile, base64, raw content, local path, remote URL
-- Works with any Laravel filesystem disk (`local`, `public`, `s3`, ...)
-- Smart filenames: original, UUID, hash, timestamp, or custom callback
-- **Safe replace**: delete old file only after successful store
-- **Safe delete**: move to trash instead of permanent deletion
-- URL helpers: absolute, temporary, signed URLs
-- Rich metadata: size, mime, extension, dirname, modified time, hash, dimensions
-- Facade (`Media`) for zero-boilerplate usage
+The fastest way to manage uploads, replacements, and URLs.
+
+### 🟩 1. Upload a file
+
+```php
+use HasanHawary\MediaManager\Facades\Media;
+
+// Simplest form
+$path = Media::upload(request()->file('avatar'), 'uploads/avatars');
+
+// Get URL
+$url = Media::url($path);
+```
+
+You can chain configuration for disk, naming, or visibility:
+
+```php
+$path = Media::on('public')
+    ->generateName('uuid')
+    ->upload(request()->file('avatar'), 'uploads/avatars');
+```
+
+---
+
+### 🟨 Upload Supports Multiple Input Types
+
+The `$item` parameter can be **any of the following**:
+
+* `UploadedFile` → from form uploads
+* `base64 string` → from mobile/API uploads
+* `URL` → download and store from remote link
+* `string content` → direct raw data (text, JSON, etc.)
+* `local file path` → existing file on the server (`/tmp/file.pdf`, `storage/app/x.png`)
+
+```php
+Media::upload($request->file('avatar'), 'uploads/avatars');
+Media::upload($base64Image, 'uploads/images');
+Media::upload('https://example.com/photo.jpg', 'uploads/images');
+Media::upload(file_get_contents('path/to/file.pdf'), 'uploads/docs');
+Media::upload(storage_path('app/temp/logo.png'), 'uploads/logos');
+```
+---
+
+### 🟦 Replace an Existing File
+
+Safely update existing files while automatically deleting the old one.
+
+```php
+$path = Media::replace($user->avatar)->upload($request->file('avatar'), 'uploads/avatars');
+
+$user->update(['avatar' => $path]);
+```
+
+| Input Value  | Behavior                            |
+| ------------ | ----------------------------------- |
+| `null`, `''` | Keeps old file                      |
+| `'delete'`   | Deletes old file and returns `null` |
+| Same path    | Keeps existing file                 |
+| New file     | Uploads new and deletes old safely  |
+
+You can combine it with chainable configuration:
+
+```php
+$path = Media::replace($user->avatar)
+    ->on('s3')
+    ->generateName('uuid')
+    ->fallbackExtension('jpg')
+    ->upload($request->file('avatar'), 'avatars');
+```
+
+---
+
+### 🌍 Generate URLs
+
+```php
+Media::url($path);                            // Absolute URL
+Media::on('public')->url($path);              // Disk-specific
+Media::on('s3')->temporaryUrl($path, 10);     // Temporary URL (minutes)
+Media::on('s3')->signedUrl($path, now()->addDay()); // Signed URL
+```
+
+---
+
+## 🧩 Main Features
+
+### 🗂 Upload
+
+* Accepts multiple input types (`UploadedFile`, base64, URL, raw content)
+* Works with all Laravel disks (`local`, `public`, `s3`, etc.)
+* Auto-handles directory creation and naming
+* Supports fluent configuration:
+
+  ```php
+  Media::on('public')
+      ->generateName('hash')
+      ->fallbackExtension('png')
+      ->upload($file, 'uploads/photos');
+  ```
+
+---
+
+### 🔁 Replace (Safe Update)
+
+* Automatically keeps or deletes old file based on new input
+* Deletes only after successful upload
+* Perfect for model updates or profile images
+
+---
+
+### 🌐 URL Generation
+
+* `url()` – Get full URL
+* `temporaryUrl($path, $minutes)` – Short-lived access
+* `signedUrl($path, $expiration)` – Secure signed URLs
+* Works seamlessly across disks
+
+---
+
+## 🏗 Old Way (Still Supported)
+
+For developers who prefer full manual control, you can still use the original explicit API.
+
+```php
+$path = Media::from($request->file('avatar'))
+    ->on('public')
+    ->to('uploads/avatars')
+    ->generateName('uuid')
+    ->store();
+```
+
+Supports all source types:
+
+```php
+Media::fromBase64($data)->to('uploads')->store();
+Media::fromUrl('https://example.com/image.jpg')->store();
+Media::fromPath(storage_path('temp/file.pdf'))->store();
+Media::fromContent($rawData)->to('uploads')->store();
+```
+
+> ✅ The new `upload()` and `replace()` methods are expressive shortcuts built on top of this same fluent core.
+
+---
+
+## 📊 Metadata Example
+
+```php
+$meta = Media::meta('uploads/docs/report.pdf');
+
+$meta->size();         // bytes
+$meta->mime();         // mime type
+$meta->extension();    // file extension
+$meta->basename();     // file name
+$meta->dimensions();   // [width, height]
+$meta->toArray();      // all metadata
+```
+
+---
+
+## 🧠 Advanced Options
+
+```php
+Media::on('s3')
+    ->visibility('private')
+    ->generateName('uuid')
+    ->fallbackExtension('png')
+    ->safeDelete(true)
+    ->upload($file, 'uploads');
+```
 
 ---
 
@@ -30,135 +197,33 @@ Includes smart naming strategies, safe replacement, trash-based deletion, rich m
 composer require hasanhawary/media-manager
 ```
 
-The package auto-discovers the service provider and facade.  
-Facade alias: `Media` → `HasanHawary\MediaManager\Facades\Media`.
+Auto-discovered in Laravel.
+Alias: `Media` → `HasanHawary\MediaManager\Facades\Media`
 
-Ensure your disks are configured in `config/filesystems.php`.
-
----
-
-## ⚡ Quick Start
-
-```php
-use HasanHawary\MediaManager\Facades\Media;
-
-// Store file
-$path = Media::fromFile(request()->file('avatar'))
-    ->to('uploads/avatars')
-    ->on('public')
-    ->generateName('uuid')
-    ->store();
-
-// URLs
-$url    = Media::on('public')->url($path);
-$tmp    = Media::on('s3')->temporaryUrl($path, 5);
-$signed = Media::on('s3')->signedUrl($path, now()->addMinutes(10));
-```
+Ensure your disks are set in `config/filesystems.php`.
 
 ---
 
-## 📂 Supported Sources
+## ✅ Compatibility
 
-```php
-Media::fromFile($file);                  // UploadedFile
-Media::fromBase64($data);                // Base64 / Data URL
-Media::fromContent('raw text');          // Raw content
-Media::fromLocalPath('/tmp/file.pdf');   // Local file path
-Media::fromUrl('https://img.com/x.png'); // Remote URL
-
-// Auto-detect (works with any of the above)
-Media::from($mixedInput)->store(); 
-// $mixedInput can be UploadedFile, base64 string, content, path, or URL
+* **PHP:** 8.0 → 8.5
+* **Laravel:** 8 → 12
 
 ---
 
-## 🔑 Naming Strategies
+## 🆕 Changelog
 
-```php
-->keepOriginalName()
-->generateName('uuid')       // default
-->generateName('hash')
-->generateName('timestamp')
-->withName('custom-name.png')
-->fallbackExtension('txt')   // when no extension detected
-```
+**v1.1.0**
 
----
-
-## 🛡 Safe Replace & Delete
-
-```php
-// Safe replace (delete old only if new saved)
-$new = Media::fromFile(request()->file('avatar'))
-    ->to('uploads/avatars')
-    ->replace('uploads/avatars/old.png')
-    ->store();
-
-// Safe delete (moves to trash)
-Media::safeDelete('uploads/avatars/old.png');
-```
-
----
-
-## 🔗 URL Helpers
-
-```php
-Media::on('public')->url($path);                  // Absolute URL
-Media::on('s3')->temporaryUrl($path, 10);         // Time-limited URL
-Media::on('s3')->signedUrl($path, now()->addDay());
-```
-
----
-
-## 📊 Metadata
-
-```php
-$meta = Media::on('public')->meta('uploads/docs/report.pdf');
-
-$meta->path();        // string|null
-$meta->url();         // string|null
-$meta->size();        // int (bytes)
-$meta->mime();        // string (mime type)
-$meta->extension();   // string|null
-$meta->basename();    // file name with extension
-$meta->filename();    // file name without extension
-$meta->dirname();     // directory path
-$meta->lastModified();// timestamp
-$meta->hash();        // md5 hash of contents
-$meta->dimensions();  // [width, height] for images
-$meta->toArray();     // full metadata as array
-```
-
----
-
-## 🌐 Controller Example
-
-```php
-use Illuminate\Support\Facades\Route;
-use Illuminate\Http\Request;
-use HasanHawary\MediaManager\Facades\Media;
-
-Route::post('/upload-avatar', function (Request $request) {
-    $request->validate(['avatar' => 'required|image|max:2048']);
-
-    $path = Media::fromFile($request->file('avatar'))->to('uploads/avatars')->store();
-
-    return response()->json([
-        'path' => $path,
-        'url'  => Media::url($path),
-    ]);
-});
-```
-
----
-
-## ✅ Version Support
-
-- **PHP**: 8.0 – 8.5
-- **Laravel**: 8 – 12
+* Added `upload()` shortcut with multi-type input support
+* Added `replace()` for safe file updates
+* Enhanced chainable configuration (`generateName`, `on`, etc.)
+* Kept backward compatibility with `from()->store()`
 
 ---
 
 ## 📜 License
 
 MIT © [Hasan Hawary](https://github.com/hasanhawary)
+
+---

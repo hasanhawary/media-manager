@@ -16,6 +16,7 @@ use HasanHawary\MediaManager\Support\UrlResolver;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class MediaManager
 {
@@ -180,8 +181,18 @@ class MediaManager
 
     public function replace(?string $oldPath = null): static
     {
-        $this->pendingDeletePath = $oldPath;
+        // Handle full URLs
+        $diskUrl = Storage::disk($this->disk)->url('');
+        if (Str::startsWith($oldPath, ['http://', 'https://'])) {
+            $path = Str::after($oldPath, $diskUrl);
+        }
 
+        // Remove storage prefix if present (for local/public disk)
+        $path = Str::after($path, 'storage/');
+
+        // Remove any leading slashes
+        $this->pendingDeletePath =  ltrim($path, '/');
+        
         return $this;
     }
 
