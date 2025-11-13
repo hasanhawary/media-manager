@@ -27,9 +27,11 @@ class LocalPathHandler extends BaseHandler implements HandlerInterface
             return null;
         }
 
+        $fullPath = $this->path($path) . '/' . $filename;
+
         $stored = Storage::disk($options['disk'])
             ->put(
-                $this->path($path) . '/' . $filename,
+                $fullPath,
                 $stream,
                 $this->options($options['visibility'])
             );
@@ -42,7 +44,7 @@ class LocalPathHandler extends BaseHandler implements HandlerInterface
             @unlink($this->sourcePath);
         }
 
-        return $stored ?: null;
+        return $stored ? $fullPath : null;
     }
 
     private function filename($namingMode, $customName, string $extension): string

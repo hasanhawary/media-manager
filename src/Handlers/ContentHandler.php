@@ -17,15 +17,16 @@ class ContentHandler extends BaseHandler implements HandlerInterface
     {
         $ext = $options['fallbackExtension'] ?? 'bin';
         $filename = $this->filename($options['namingMode'], $options['customName'], $ext);
+        $fullPath = $this->path($path) . '/' . $filename;
 
         $stored = Storage::disk($options['disk'])
             ->put(
-                $this->path($path) . '/' . $filename,
+                $fullPath,
                 $this->content,
                 $this->options($options['visibility'] ?? null)
             );
 
-        return $stored ?: null;
+        return $stored ? $fullPath : null;
     }
 
     private function filename($namingMode, $customName, $extension): string

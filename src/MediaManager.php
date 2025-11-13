@@ -89,11 +89,11 @@ class MediaManager
                     true
                 )
             ),
-            default => throw new UnsupportedTypeException('Unsupported type passed to MediaManager::from()'),
+            default => $this,
         };
     }
 
-    public function to(string $path): static
+    public function to(string $path = 'files'): static
     {
         $this->path = trim($path, '/');
         return $this;
@@ -138,11 +138,11 @@ class MediaManager
 
     /**
      * @throws NoHandlerDefinedException
-     */
+    */
     public function store(): string|array|null
     {
         if (!$this->handler) {
-            throw new NoHandlerDefinedException("No handler defined. Use from*() before store().");
+            return null;
         }
 
         $path = $this->path ?: 'files';
@@ -156,21 +156,38 @@ class MediaManager
 
         $result = $this->handler->store($path, $options);
 
-        // No rollback: only delete a previous file after a successful store
+        // Delete previous file after successful store
         if ($result && $this->pendingDeletePath) {
-            if (Storage::disk($this->disk)->exists($this->pendingDeletePath)) {
-                $this->delete($this->pendingDeletePath);
-            }
+            $this->delete($this->pendingDeletePath);
             $this->pendingDeletePath = null;
         }
 
         return $result;
     }
 
-    public function replace(string $oldPath): static
+    /**
+    * @throws NoHandlerDefinedException
+    */
+    public function upload(mixed $value, ?string $path = 'files'): string|array|null
+    {
+        return match(true) {
+            empty($value) => $this->pendingDeletePath, // keep old path if input empty
+            $value === 'delete' => tap($this->delete($this->pendingDeletePath), fn() => $this->pendingDeletePath = null),
+            $value === $this->pendingDeletePath => $this->pendingDeletePath,
+            default => $this->from($value)->to($path)->store(),
+        };
+    }
+
+    public function replace(?string $oldPath = null): static
     {
         $this->pendingDeletePath = $oldPath;
+
         return $this;
+    }
+
+    public function exists(?string $item = null): bool
+    {
+        return Storage::disk($this->disk)->exists($item);;
     }
 
     public function delete(array|string|null $files = null): void
@@ -221,4 +238,10 @@ class MediaManager
     {
         return new MediaMeta($paths, $this->disk);
     }
+
+    public function getPendingDeletePath(): ?string
+    {
+        return $this->pendingDeletePath;
+    }
+
 }

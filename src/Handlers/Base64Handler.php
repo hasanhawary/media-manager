@@ -22,15 +22,16 @@ class Base64Handler extends BaseHandler implements HandlerInterface
 
         $extension = $this->determineExtension($mime, $options['fallbackExtension'] ?? 'bin');
         $filename = $this->filename($options['namingMode'], $options['customName'], $extension);
+        $fullPath = $this->path($path) . '/' . $filename;
 
         $stored = Storage::disk($options['disk'])
             ->put(
-                $this->path($path) . '/' . $filename,
+                $fullPath,
                 $data,
                 $this->options($options['visibility'])
             );
 
-        return $stored ?: null;
+        return $stored ? $fullPath : null;
     }
 
     private function filename($namingMode, $customName, $extension): string
