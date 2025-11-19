@@ -2,63 +2,119 @@
 
 namespace HasanHawary\MediaManager\Support;
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ChunkResolver
 {
     /**
-     * @param $data
-     * @param $path
-     * @param $is_final
-     * @return false|string
+     * Handle chunk upload
      */
-    public function upload($data, $path, $is_final): false|string
+    public function upload($data, bool $is_final): false|string
     {
-        // Get the file name from the uploaded file data
-        $fileName = pathinfo($data['file_name'], PATHINFO_FILENAME);
-        $chunkDir = "chunks/" . (auth()->id() ?? 1) . "/$fileName";
+        $this->validateChunkData($data);
 
-        // Ensure the chunks directory is new dir for first chunk
-        when(Storage::exists($chunkDir) && (int)$data['chunk_number'] === 1, fn() => Storage::deleteDirectory($chunkDir));
+        // resolve user_id (request > auth > fail)
+        $userId = $data['user_id']
+            ?? auth()->id()
+            ?? throw new \InvalidArgumentException("user_id is required");
 
-        // Create the chunks directory if it does not exist
-        when(!Storage::exists($chunkDir), fn() => Storage::makeDirectory($chunkDir));
+        // filename without extension
+        $fileBaseName = pathinfo($data['file_name'], PATHINFO_FILENAME);
 
-        // Save the chunk
-        $file = Storage::putFileAs($chunkDir, $data['chunk_file'], $data['chunk_number']);
+        // where chunks will be stored
+        $chunkDir = "chunks/{$userId}/{$fileBaseName}";
+        $chunkNumber = (int) $data['chunk_number'];
 
-        if ($is_final) {
-            return $this->combineChunks($chunkDir, $path, $data['file_name']);
+        // First chunk → create fresh directory
+        if (Storage::exists($chunkDir) && $chunkNumber === 1) {
+            Storage::deleteDirectory($chunkDir);
         }
 
-        return $file;
+        if (!Storage::exists($chunkDir)) {
+            Storage::makeDirectory($chunkDir);
+        }
+
+        // Validate sequence
+        $existingChunks = Storage::files($chunkDir);
+        $expectedNext = count($existingChunks) + 1;
+
+        if ($chunkNumber !== $expectedNext) {
+            throw new \RuntimeException(
+                "Unexpected chunk_number: got {$chunkNumber}, expected {$expectedNext}."
+            );
+        }
+
+        // Store chunk
+        Storage::putFileAs($chunkDir, $data['chunk_file'], $chunkNumber);
+
+        // If last chunk → merge
+        return $is_final
+            ? $this->combineChunks($chunkDir, $data)
+            : (string) $chunkNumber;
     }
 
     /**
-     * @param $chunkDir
-     * @param $path
-     * @param $fileName
-     * @return string
+     * Validate chunk input data
      */
-    public function combineChunks($chunkDir, $path, $fileName): string
+    protected function validateChunkData($data): void
     {
-        // Create the final directory if it does not exist
-        when(!Storage::exists($path), fn() => Storage::makeDirectory($path));
+        $required = ['file_name', 'chunk_number', 'chunk_file'];
 
-        // Generate a unique file name for the final file and its path
-        $finalPath = "$path/(" . Str::limit(strrev(time()), 4, '') . ")_$fileName";
-        $finalFile = Storage::path($finalPath);
-
-        // Merge all chunks into the final file
-        $finalFileOpen = fopen($finalFile, 'ab');
-        for ($i = 1, $iMax = count(Storage::files($chunkDir)); $i <= $iMax; $i++) {
-            fwrite($finalFileOpen, Storage::get("$chunkDir/$i"));
-            Storage::delete("$chunkDir/$i"); // delete chunk after appending
+        foreach ($required as $key) {
+            if (!array_key_exists($key, $data)) {
+                throw new \InvalidArgumentException("Missing required field: $key");
+            }
         }
 
-        // Close the final file and delete the chunks directory
-        fclose($finalFileOpen);
+        if (!Str::contains($data['file_name'], '.')) {
+            throw new \InvalidArgumentException("Invalid file_name: extension missing");
+        }
+
+        if (!is_numeric($data['chunk_number']) || $data['chunk_number'] < 1) {
+            throw new \InvalidArgumentException("Invalid chunk_number");
+        }
+
+        if (!$data['chunk_file'] instanceof UploadedFile) {
+            throw new \InvalidArgumentException(
+                "chunk_file must be an instance of UploadedFile"
+            );
+        }
+    }
+
+    /**
+     * Merge chunks into final file
+     */
+    public function combineChunks(string $chunkDir, array $data): string
+    {
+        // directory to save final file
+        $directory = $data['directory'] ?? 'uploads';
+
+        if (!Storage::exists($directory)) {
+            Storage::makeDirectory($directory);
+        }
+
+        $fileName = $data['file_name'];
+
+        // unique name: (XXXX)_filename.ext
+        $uniquePrefix = Str::limit(strrev(time()), 4, '');
+        $finalPath = "{$directory}/({$uniquePrefix})_{$fileName}";
+
+        $finalAbsolutePath = Storage::path($finalPath);
+
+        $handle = fopen($finalAbsolutePath, 'ab');
+
+        $files = Storage::files($chunkDir);
+        sort($files);
+
+        foreach ($files as $file) {
+            fwrite($handle, Storage::get($file));
+            Storage::delete($file);
+        }
+
+        fclose($handle);
+
         Storage::deleteDirectory($chunkDir);
 
         return $finalPath;

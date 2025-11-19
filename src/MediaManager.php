@@ -11,6 +11,7 @@ use HasanHawary\MediaManager\Handlers\ContentHandler;
 use HasanHawary\MediaManager\Handlers\LocalPathHandler;
 use HasanHawary\MediaManager\Handlers\UploadedFileHandler;
 use HasanHawary\MediaManager\Handlers\UrlHandler;
+use HasanHawary\MediaManager\Support\ChunkResolver;
 use HasanHawary\MediaManager\Support\MediaMeta;
 use HasanHawary\MediaManager\Support\UrlResolver;
 use Illuminate\Http\UploadedFile;
@@ -167,6 +168,8 @@ class MediaManager
     }
 
     /**
+    * Main Method to upload media
+    *
     * @throws NoHandlerDefinedException
     */
     public function upload(mixed $value, ?string $path = 'files'): string|array|null
@@ -178,6 +181,17 @@ class MediaManager
             default => $this->from($value)->to($path)->store(),
         };
     }
+
+    public function chunk(array $data): string|false
+    {
+        $resolver = new ChunkResolver();
+
+        return $resolver->upload(
+            $data,
+            isset($data['is_final']) ? (bool) $data['is_final'] : false
+        );
+    }
+
     public function replace(?string $oldPath = null): static
     {
         // Normalize to be valid path
