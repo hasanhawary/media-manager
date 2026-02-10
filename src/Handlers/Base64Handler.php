@@ -20,7 +20,7 @@ class Base64Handler extends BaseHandler implements HandlerInterface
             return null;
         }
 
-        $extension = $this->determineExtension($mime, $options['fallbackExtension'] ?? 'bin');
+        $extension = $this->determineExtension($mime, $options['fallbackExtension'] ?? 'jpg');
         $filename = $this->filename($options['namingMode'], $options['customName'], $extension);
         $fullPath = $this->path($path) . '/' . $filename;
 

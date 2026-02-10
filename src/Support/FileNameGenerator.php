@@ -64,6 +64,6 @@ class FileNameGenerator
             'video/mp4' => 'mp4',
         ];
         $mime = $mime ? strtolower($mime) : null;
-        return $map[$mime] ?? ($fallback ?: 'bin');
+        return $map[$mime] ?? ($fallback ?: 'jpg');
     }
 }

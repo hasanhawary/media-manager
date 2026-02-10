@@ -19,7 +19,7 @@ class LocalPathHandler extends BaseHandler implements HandlerInterface
             return null;
         }
 
-        $ext = pathinfo($this->sourcePath, PATHINFO_EXTENSION) ?: ($options['fallbackExtension'] ?? 'bin');
+        $ext = pathinfo($this->sourcePath, PATHINFO_EXTENSION) ?: ($options['fallbackExtension'] ?? 'jpg');
         $filename = $this->filename($options['namingMode'], $options['customName'], $ext);
 
         $stream = fopen($this->sourcePath, 'rb');

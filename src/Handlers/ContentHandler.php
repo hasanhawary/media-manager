@@ -15,7 +15,7 @@ class ContentHandler extends BaseHandler implements HandlerInterface
 
     public function store(string $path, array $options): ?string
     {
-        $ext = $options['fallbackExtension'] ?? 'bin';
+        $ext = $options['fallbackExtension'] ?? 'jpg';
         $filename = $this->filename($options['namingMode'], $options['customName'], $ext);
         $fullPath = $this->path($path) . '/' . $filename;
 

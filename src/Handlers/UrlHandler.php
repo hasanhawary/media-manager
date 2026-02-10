@@ -31,7 +31,7 @@ class UrlHandler extends BaseHandler implements HandlerInterface
             return null;
         }
 
-        $ext = pathinfo(parse_url($this->url, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION) ?: ($options['fallbackExtension'] ?? 'bin');
+        $ext = pathinfo(parse_url($this->url, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION) ?: ($options['fallbackExtension'] ?? 'jpg');
         $filename = $this->filename($options['namingMode'], $options['customName'], $ext);
         $fullPath = $this->path($path) . '/' . $filename;
 
