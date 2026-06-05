@@ -3,7 +3,6 @@
 namespace HasanHawary\MediaManager\Support;
 
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Str;
 
 class FileNameGenerator
 {
@@ -34,7 +33,7 @@ class FileNameGenerator
     public static function uuid(string $extension): string
     {
         $ext = ltrim($extension, '.');
-        return Str::uuid()->toString() . ($ext ? ".{$ext}" : '');
+        return self::uuidV4() . ($ext ? ".{$ext}" : '');
     }
 
     public static function hash(string $path, string $extension): string
@@ -46,7 +45,7 @@ class FileNameGenerator
     public static function timestamp(string $extension): string
     {
         $ext = ltrim($extension, '.');
-        return time() . '_' . Str::random(6) . ($ext ? ".{$ext}" : '');
+        return time() . '_' . bin2hex(random_bytes(3)) . ($ext ? ".{$ext}" : '');
     }
 
     public static function determineExtension(?string $mime, ?string $fallback): string
@@ -65,5 +64,14 @@ class FileNameGenerator
         ];
         $mime = $mime ? strtolower($mime) : null;
         return $map[$mime] ?? ($fallback ?: 'jpg');
+    }
+
+    private static function uuidV4(): string
+    {
+        $bytes = random_bytes(16);
+        $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+        $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
     }
 }

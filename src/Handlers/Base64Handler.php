@@ -5,7 +5,7 @@ namespace HasanHawary\MediaManager\Handlers;
 use HasanHawary\MediaManager\BaseHandler;
 use HasanHawary\MediaManager\Contracts\HandlerInterface;
 use HasanHawary\MediaManager\Support\FileNameGenerator;
-use Illuminate\Support\Facades\Storage;
+use HasanHawary\MediaManager\Support\MediaStorageWriter;
 
 class Base64Handler extends BaseHandler implements HandlerInterface
 {
@@ -21,22 +21,7 @@ class Base64Handler extends BaseHandler implements HandlerInterface
         }
 
         $extension = $this->determineExtension($mime, $options['fallbackExtension'] ?? 'jpg');
-        $filename = $this->filename($options['namingMode'], $options['customName'], $extension);
-        $fullPath = $this->path($path) . '/' . $filename;
-
-        $stored = Storage::disk($options['disk'])
-            ->put(
-                $fullPath,
-                $data,
-                $this->options($options['visibility'])
-            );
-
-        return $stored ? $fullPath : null;
-    }
-
-    private function filename($namingMode, $customName, $extension): string
-    {
-        return FileNameGenerator::generate($extension, $namingMode, $customName);
+        return (new MediaStorageWriter())->putContent($path, $data, $options, $extension);
     }
 
     private function decode(string $input, ?string &$mime = null): ?string

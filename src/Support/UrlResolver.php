@@ -35,7 +35,7 @@ class UrlResolver
     public function temporaryUrl(int $minutes = 5): string|array|null
     {
         return $this->mapPaths(fn($path) => Storage::disk($this->disk)->exists($path)
-            ? Storage::disk($this->disk)->temporaryUrl($path, now()->addMinutes($minutes))
+            ? Storage::disk($this->disk)->temporaryUrl($path, \Carbon\Carbon::now()->addMinutes($minutes))
             : null
         );
     }
@@ -54,7 +54,7 @@ class UrlResolver
             return null;
         }
 
-        $urls = array_filter(array_map($callback, $this->paths));
+        $urls = array_values(array_filter(array_map($callback, $this->paths)));
         return count($urls) > 1 ? $urls : ($urls[0] ?? null);
     }
 }

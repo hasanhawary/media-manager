@@ -13,6 +13,8 @@ use HasanHawary\MediaManager\Handlers\UploadedFileHandler;
 use HasanHawary\MediaManager\Handlers\UrlHandler;
 use HasanHawary\MediaManager\Support\ChunkResolver;
 use HasanHawary\MediaManager\Support\MediaMeta;
+use HasanHawary\MediaManager\Support\PathNormalizer;
+use HasanHawary\MediaManager\Support\RemoteMediaFetcher;
 use HasanHawary\MediaManager\Support\UrlResolver;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
@@ -29,10 +31,19 @@ class MediaManager
     protected ?string $namingMode = 'uuid';
     protected mixed $customName = null;
     protected ?string $pendingDeletePath = null;
+    private const NAMING_STRATEGIES = ['uuid', 'hash', 'timestamp', 'original', 'custom'];
 
     public function __construct()
     {
-        $this->disk = config('filesystems.default');
+        $this->disk = $this->config('media-manager.disk')
+            ?? $this->config('filesystems.default')
+            ?? 'local';
+        $this->visibility = $this->config('media-manager.visibility', $this->visibility);
+        $this->fallbackExtension = $this->config('media-manager.fallback_extension');
+        $this->path = (new PathNormalizer())->directory(
+            (string) $this->config('media-manager.path', $this->path)
+        );
+        $this->namingMode = (string) $this->config('media-manager.naming_strategy', $this->namingMode);
     }
 
     /*--------------------------------------------------------------
@@ -77,10 +88,10 @@ class MediaManager
     public function from(mixed $item): static
     {
         return match (true) {
-            is_string($item) && (new UrlResolver($item, $this->disk))->isValid($item) => $this->fromUrl($item),
+            is_string($item) && (new RemoteMediaFetcher())->isValidUrl($item) => $this->fromUrl($item),
             is_string($item) && preg_match('/^data:([a-z0-9+\-\.\/]+);base64,(.*)$/i', $item) => $this->fromBase64($item),
-            is_string($item) && base64_decode($item, true) !== false => $this->fromBase64($item),
             is_string($item) && is_file($item) => $this->fromLocalPath($item),
+            is_string($item) && $this->isPlainBase64($item) => $this->fromBase64($item),
             is_string($item) => $this->fromContent($item),
             $item instanceof UploadedFile => $this->fromFile($item),
             is_object($item) && method_exists($item, 'getPathname') => $this->fromFile(
@@ -91,18 +102,22 @@ class MediaManager
                     true
                 )
             ),
-            default => $this,
+            default => throw new UnsupportedTypeException('Unsupported media source type: '.get_debug_type($item)),
         };
     }
 
     public function to(string $path = 'files'): static
     {
-        $this->path = trim($path, '/');
+        $this->path = (new PathNormalizer())->directory($path);
         return $this;
     }
 
-    public function on(?string $disk): static
+    public function on(string $disk): static
     {
+        if ($disk === '') {
+            throw new \InvalidArgumentException('Disk name cannot be empty.');
+        }
+
         $this->disk = $disk;
         return $this;
     }
@@ -127,6 +142,10 @@ class MediaManager
 
     public function generateName(string $strategy = 'uuid'): static
     {
+        if (! in_array($strategy, self::NAMING_STRATEGIES, true) || $strategy === 'custom') {
+            throw new \InvalidArgumentException("Unsupported naming strategy: {$strategy}");
+        }
+
         $this->namingMode = $strategy;
         return $this;
     }
@@ -144,7 +163,7 @@ class MediaManager
     public function store(): string|array|null
     {
         if (!$this->handler) {
-            return null;
+            throw new NoHandlerDefinedException('No media source handler has been selected.');
         }
 
         $path = $this->path ?: 'files';
@@ -172,19 +191,34 @@ class MediaManager
     *
     * @throws NoHandlerDefinedException
     */
-    public function upload(mixed $value, ?string $path = 'files'): string|array|null
+    public function upload(mixed $value, ?string $path = null): string|array|null
     {
-        return match(true) {
-            empty($value) => $this->pendingDeletePath, // Keep old path if input empty
-            $value === 'delete' => tap($this->delete($this->pendingDeletePath), fn() => $this->pendingDeletePath = null),
-            $value === $this->pendingDeletePath => $this->pendingDeletePath,
-            default => $this->from($value)->to($path)->store(),
-        };
+        if ($this->isEmptyUploadValue($value)) {
+            return $this->pendingDeletePath;
+        }
+
+        if ($value === 'delete') {
+            $this->delete($this->pendingDeletePath);
+            $this->pendingDeletePath = null;
+
+            return null;
+        }
+
+        if ($value === $this->pendingDeletePath) {
+            return $this->pendingDeletePath;
+        }
+
+        $this->from($value);
+        if ($path !== null) {
+            $this->to($path);
+        }
+
+        return $this->store();
     }
 
     public function chunk(array $data): string|false
     {
-        $resolver = new ChunkResolver();
+        $resolver = new ChunkResolver($this->disk);
 
         return $resolver->upload(
             $data,
@@ -202,7 +236,9 @@ class MediaManager
 
     public function exists(?string $item = null): bool
     {
-        return Storage::disk($this->disk)->exists($item);;
+        $path = $this->resolvePath($item);
+
+        return $path !== null && Storage::disk($this->disk)->exists($path);
     }
 
     public function delete(array|string|null $files = null): void
@@ -224,13 +260,13 @@ class MediaManager
             $file = $this->resolvePath($item);
 
             if (Storage::disk($this->disk)->exists($file)) {
-                $trashPath = 'trash/' . basename($item);
+                $trashPath = 'trash/' . basename($file);
 
                 if (Storage::disk($this->disk)->exists($trashPath)) {
                     $trashPath = 'trash/' . uniqid() . '_' . basename($file);
                 }
 
-                Storage::disk($this->disk)->move($item, $trashPath);
+                Storage::disk($this->disk)->move($file, $trashPath);
             }
         }
     }
@@ -245,7 +281,7 @@ class MediaManager
         return (new UrlResolver($paths, $this->disk))->temporaryUrl($minutes);
     }
 
-    public function signedUrl(string|array|null $paths = null, \DateTimeInterface $expiresAt = null): array|string|null
+    public function signedUrl(string|array|null $paths = null, ?\DateTimeInterface $expiresAt = null): array|string|null
     {
         $expiresAt ??= Carbon::now()->addMinutes(5);
 
@@ -290,5 +326,34 @@ class MediaManager
         $path = ltrim($path, '/');
 
         return $path === '' ? null : $path;
+    }
+
+    private function isPlainBase64(string $value): bool
+    {
+        $normalized = preg_replace('/\s+/', '', $value);
+        if (! is_string($normalized) || strlen($normalized) < 16 || strlen($normalized) % 4 !== 0) {
+            return false;
+        }
+
+        if (! preg_match('/^[A-Za-z0-9+\/]+={0,2}$/', $normalized)) {
+            return false;
+        }
+
+        $decoded = base64_decode($normalized, true);
+        if ($decoded === false) {
+            return false;
+        }
+
+        return rtrim(base64_encode($decoded), '=') === rtrim($normalized, '=');
+    }
+
+    private function isEmptyUploadValue(mixed $value): bool
+    {
+        return $value === null || $value === '' || $value === [];
+    }
+
+    private function config(string $key, mixed $default = null): mixed
+    {
+        return function_exists('config') ? config($key, $default) : $default;
     }
 }

@@ -5,8 +5,8 @@ namespace HasanHawary\MediaManager\Handlers;
 use HasanHawary\MediaManager\BaseHandler;
 use HasanHawary\MediaManager\Contracts\HandlerInterface;
 use HasanHawary\MediaManager\Support\FileNameGenerator;
-use HasanHawary\MediaManager\Support\UrlResolver;
-use Illuminate\Support\Facades\Storage;
+use HasanHawary\MediaManager\Support\MediaStorageWriter;
+use HasanHawary\MediaManager\Support\RemoteMediaFetcher;
 
 class UrlHandler extends BaseHandler implements HandlerInterface
 {
@@ -16,37 +16,26 @@ class UrlHandler extends BaseHandler implements HandlerInterface
 
     public function store(string $path, array $options): ?string
     {
-        $resolver = new UrlResolver($this->url, $options['disk']);
+        $fetcher = new RemoteMediaFetcher();
 
-        if (!$this->storedLocal) {
-            return $resolver->isValid($this->url) ? $this->url : null;
+        if (! $this->storedLocal) {
+            return $fetcher->isValidUrl($this->url) ? $this->url : null;
         }
 
-        if (!$resolver->isValid($this->url)) {
+        $media = $fetcher->fetch($this->url);
+        if (! $media) {
             return null;
         }
 
-        $content = @file_get_contents($this->url);
-        if ($content === false) {
-            return null;
-        }
+        $extension = $media->extension
+            ?? FileNameGenerator::determineExtension($media->mime, $options['fallbackExtension'] ?? 'jpg');
 
-        $ext = pathinfo(parse_url($this->url, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION) ?: ($options['fallbackExtension'] ?? 'jpg');
-        $filename = $this->filename($options['namingMode'], $options['customName'], $ext);
-        $fullPath = $this->path($path) . '/' . $filename;
-
-        $stored = Storage::disk($options['disk'])
-            ->put(
-                $fullPath,
-                $content,
-                $this->options($options['visibility'])
-            );
-
-        return $stored ? $fullPath : null;
-    }
-
-    public function filename($namingMode, $customName, string $extension): string
-    {
-        return FileNameGenerator::generate($extension, $namingMode, $customName);
+        return (new MediaStorageWriter())->putContent(
+            $path,
+            $media->content,
+            $options,
+            $extension,
+            $media->originalName
+        );
     }
 }

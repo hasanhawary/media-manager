@@ -4,8 +4,7 @@ namespace HasanHawary\MediaManager\Handlers;
 
 use HasanHawary\MediaManager\BaseHandler;
 use HasanHawary\MediaManager\Contracts\HandlerInterface;
-use HasanHawary\MediaManager\Support\FileNameGenerator;
-use Illuminate\Support\Facades\Storage;
+use HasanHawary\MediaManager\Support\MediaStorageWriter;
 
 class LocalPathHandler extends BaseHandler implements HandlerInterface
 {
@@ -20,35 +19,27 @@ class LocalPathHandler extends BaseHandler implements HandlerInterface
         }
 
         $ext = pathinfo($this->sourcePath, PATHINFO_EXTENSION) ?: ($options['fallbackExtension'] ?? 'jpg');
-        $filename = $this->filename($options['namingMode'], $options['customName'], $ext);
-
         $stream = fopen($this->sourcePath, 'rb');
         if ($stream === false) {
             return null;
         }
 
-        $fullPath = $this->path($path) . '/' . $filename;
-
-        $stored = Storage::disk($options['disk'])
-            ->put(
-                $fullPath,
-                $stream,
-                $this->options($options['visibility'])
-            );
+        $storedPath = (new MediaStorageWriter())->putStream(
+            $path,
+            $stream,
+            $options,
+            $ext,
+            basename($this->sourcePath)
+        );
 
         if (is_resource($stream)) {
             fclose($stream);
         }
 
-        if ($stored && !$this->isCopy) {
+        if ($storedPath && ! $this->isCopy) {
             @unlink($this->sourcePath);
         }
 
-        return $stored ? $fullPath : null;
-    }
-
-    private function filename($namingMode, $customName, string $extension): string
-    {
-        return FileNameGenerator::generate($extension, $namingMode, $customName);
+        return $storedPath;
     }
 }

@@ -5,7 +5,7 @@ namespace HasanHawary\MediaManager\Support;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
-class MediaMeta
+class MediaMeta implements \JsonSerializable
 {
     protected string $path;
     protected string $disk;
@@ -80,8 +80,19 @@ class MediaMeta
         if (!$this->exists()) return null;
 
         try {
-            $contents = $this->storage()->get($this->path);
-            return hash($algo, $contents);
+            $stream = $this->storage()->readStream($this->path);
+            if ($stream === null || $stream === false) {
+                return null;
+            }
+
+            $context = hash_init($algo);
+            try {
+                hash_update_stream($context, $stream);
+            } finally {
+                fclose($stream);
+            }
+
+            return hash_final($context);
 
         } catch (\Throwable $e) {
             Log::error("MediaMeta::hash failed", ['file' => $this->path, 'exception' => $e]);
