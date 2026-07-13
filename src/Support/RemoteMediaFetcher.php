@@ -20,6 +20,10 @@ class RemoteMediaFetcher
             return false;
         }
 
+         if (\Str::startsWith($url, ['http://', 'https://'])) {
+            return true;
+        }
+
         $parts = parse_url($url);
         if (! in_array($parts['scheme'] ?? null, ['http', 'https'], true) || empty($parts['host'])) {
             return false;
