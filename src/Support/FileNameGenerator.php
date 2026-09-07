@@ -48,7 +48,7 @@ class FileNameGenerator
         return time() . '_' . bin2hex(random_bytes(3)) . ($ext ? ".{$ext}" : '');
     }
 
-    public static function determineExtension(?string $mime, ?string $fallback): string
+  public static function determineExtension(?string $mime, ?string $fallback): string
     {
         $map = [
             'image/jpeg' => 'jpg',
@@ -58,14 +58,17 @@ class FileNameGenerator
             'image/webp' => 'webp',
             'image/svg+xml' => 'svg',
             'application/pdf' => 'pdf',
+            'application/json' => 'json',
+            'text/json' => 'json',
             'text/plain' => 'txt',
             'audio/mpeg' => 'mp3',
             'video/mp4' => 'mp4',
         ];
+
         $mime = $mime ? strtolower($mime) : null;
+
         return $map[$mime] ?? ($fallback ?: 'jpg');
     }
-
     private static function uuidV4(): string
     {
         $bytes = random_bytes(16);

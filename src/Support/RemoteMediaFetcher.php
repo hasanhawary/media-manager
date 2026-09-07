@@ -21,6 +21,7 @@ class RemoteMediaFetcher
         }
 
          if (\Str::startsWith($url, ['http://', 'https://'])) {
+            info($url);
             return true;
         }
 

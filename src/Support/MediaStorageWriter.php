@@ -11,10 +11,10 @@ class MediaStorageWriter
     {
         $fullPath = $this->fullPath($path, $this->filename($extension ?? $this->fallbackExtension($options), $options, $originalName));
 
-        $stored = Storage::disk($options['disk'])
+        Storage::disk($options['disk'])
             ->put($fullPath, $content, $this->visibilityOptions($options));
 
-        return $stored ? $fullPath : null;
+        return $fullPath;
     }
 
     /**
